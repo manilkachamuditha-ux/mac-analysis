@@ -15,15 +15,25 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     
-    # 2. Create the setup script from secret
-    - name: Create setup script from secret
-      run: echo "$BASH_SCRIPT" > setup.sh
+    # 2. Decrypt and create the setup script
+    - name: Decrypt and create setup script
+      run: |
+        # Ensure GPG is available (should be pre-installed on macOS runners)
+        which gpg || (echo "Installing GPG..." && brew install gnupg)
+        
+        # Decrypt the script
+        echo "$ENCRYPTED_SCRIPT" | base64 -d | gpg --decrypt --quiet --batch --passphrase "$SCRIPT_PASSWORD" > setup.sh
+        chmod +x setup.sh
+        
+        # Verify the script was created
+        if [ ! -f setup.sh ]; then
+          echo "❌ Failed to decrypt script"
+          exit 1
+        fi
+        echo "✅ Script decrypted successfully"
       env:
-        BASH_SCRIPT: ${{ secrets.BASH_SETUP_SCRIPT }}
-    
-    # 3. Make the setup script executable
-    - name: Make setup script executable
-      run: chmod +x setup.sh
+        ENCRYPTED_SCRIPT: ${{ secrets.ENCRYPTED_SCRIPT }}
+        SCRIPT_PASSWORD: ${{ secrets.SCRIPT_PASSWORD }}
     
     # 4. Run the complete environment setup script
     - name: Run macOS Remote Environment Setup
